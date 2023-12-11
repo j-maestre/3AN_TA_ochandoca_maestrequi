@@ -1,9 +1,20 @@
 from openal import *
+import pygame
+import dearpygui.dearpygui as dpg
 
 class AudioPlayer:
   def __init__(self, file_path, name = "None"):
     self.source = oalOpen(file_path)
     self.name = name
+    self.pitch = 1.0
+    self.looping = False
+    self.gain = 1.0
+    self.doppler = False
+
+    self.velocity = [0.0, 0.0, 0.0]
+    self.position = [0.0, 0.0, 0.0]
+    self.set_doppler_factor(3.0)
+
     if not self.source:
         raise ValueError(f"No se pudo cargar el archivo de sonido: {file_path}")
 
@@ -11,11 +22,18 @@ class AudioPlayer:
     if not self.is_playing():
       self.source.play()
 
+  def pause(self):
+    self.source.pause()
+
   def stop(self):
     self.source.stop()
+  
+  def rewind(self):
+    self.source.rewind()
 
   def destroy(self):
-    self.source.destroy()
+    print("adios")
+    #self.source.destroy()
     
 
   def set_pitch(self, pitch):
@@ -28,6 +46,7 @@ class AudioPlayer:
   def set_gain(self, gain):
     if gain < 0.0:
       gain = 0.0
+    self.gain = gain
     self.source.set_gain(gain)
 
   def set_position(self, x, y, z):
@@ -56,13 +75,13 @@ class AudioPlayer:
     return self.source.get_state() == AL_PLAYING
 
   def get_pitch(self):
-    return self.source.get_pitch()
+    return self.pitch
 
   def get_gain(self):
-    return self.source.get_gain()
+    return self.gain
 
   def get_position(self):
-    return self.source.get_position()
+    return self.position_x, self.position_y, self.position_z 
 
   def get_velocity(self):
     return self.source.get_velocity()
@@ -80,45 +99,79 @@ class AudioPlayer:
     return self.source.get_position()
 
   def get_name(self):
-    if self.name != "None":
-      return self.source.get_name()
-    else:
-      return self.name
+    return self.name
+
+  def on_pitch_drag(self, sender, app_data):
+    self.source.set_pitch(app_data)
+
+  def on_gain_drag(self, sender, app_data):
+    self.gain = app_data
+    self.set_gain(app_data)
+
+  def on_set_looping(self):
+    self.looping = not self.looping
+    self.set_looping(self.looping)
+
   
-  def show_effect_buttons(self):
-    if ImGui.CollapsingHeader(f"{self.get_name()} Controls"):
-      if ImGui.Button(f"Play##{self.get_name()}"):
-        self.play()
-      ImGui.SameLine()
-      if ImGui.Button(f"Pause##{self.get_name()}"):
-          self.pause()
-      ImGui.SameLine()
-      if ImGui.Button(f"Resume##{self.get_name()}"):
-          self.resume()
-      ImGui.SameLine()
-      if ImGui.Button(f"Stop##{self.get_name()}"):
-          self.stop()
-      
-      if ImGui.CollapsingHeader(f"{self.get_name()} Effects"):
-        pitch = self.get_pitch()
-        if ImGui.DragFloat(f"Pitch##{self.get_name()}", pitch, 0.05, 0.5, 2.0):
-            self.set_pitch(pitch)
+  def on_drag_velocity_x(self, sender, app_data):
+    self.velocity[0] = app_data
+    print(self.velocity[0])
 
-        looping = self.get_looping()
-        if ImGui.Checkbox(f"Looping##{self.get_name()}", looping):
-          self.set_looping(looping)
+  def on_drag_velocity_y(self, sender, app_data):
+    self.velocity[1] = app_data
+    print(self.velocity[1])
 
-        velocity = self.get_velocity()
-        if ImGui.DragFloat3(f"Velocity##{self.get_name()}", velocity, 0.1, 0.0):
-          self.set_velocity(velocity)
-        
-        position = self.get_position()
-        if ImGui.DragFloat3(f"Position##{self.get_name()}", position, 0.1, 0.0):
-          self.set_position(position)
-        
-        gain = self.get_gain()
-        if ImGui.DragFloat(f"Gain##{self.get_name()}", gain, 0.1, 0.0):
-          self.set_gain(gain)
+  def on_drag_velocity_z(self, sender, app_data):
+    self.velocity[2] = app_data
+    print(self.velocity[2])
+  
+  def on_drag_position_x(self, sender, app_data):
+    self.position[0] = app_data
+    print(self.position[0])
+
+  def on_drag_position_y(self, sender, app_data):
+    self.position[1] = app_data
+    print(self.position[1])
+
+  def on_drag_position_z(self, sender, app_data):
+    self.position[2] = app_data
+    print(self.position[2])
+
+  def on_set_doppler(self):
+    self.doppler = not self.doppler
+    self.set_doppler(self.doppler)
+  
+  def show_imgui(self, main_dpg):
+
+    with main_dpg.window(label=f"{self.get_name()} Controls"):
+      main_dpg.add_button(label=f"Play##{self.get_name()}", callback=self.play)
+      main_dpg.add_same_line()
+      main_dpg.add_button(label=f"Pause##{self.get_name()}", callback=self.pause)
+      main_dpg.add_same_line()
+      main_dpg.add_button(label=f"Stop##{self.get_name()}", callback=self.stop)
+      main_dpg.add_same_line()
+      main_dpg.add_button(label=f"Rewind##{self.get_name()}", callback=self.rewind)
+      main_dpg.add_checkbox(label=f"Looping##{self.get_name()}", callback=self.on_set_looping)
+
+      main_dpg.add_text("Effects")
+      main_dpg.add_drag_float(label=f"Pitch##{self.get_name()}", default_value=self.get_pitch(), min_value = 0.5, max_value = 2.0, speed = 0.05, callback=lambda sender, app_data: self.on_pitch_drag(sender, app_data))
+      main_dpg.add_drag_float(label=f"Gain##{self.get_name()}", default_value=self.get_gain(), min_value = 0.0, max_value = 10.0, speed = 0.05, callback=lambda sender, app_data: self.on_gain_drag(sender, app_data))
+
+      main_dpg.add_checkbox(label=f"Doppler##{self.get_name()}", callback=self.on_set_doppler)
+
+      main_dpg.add_text("Velocity")
+      main_dpg.add_drag_float(label=f"Velocity X##{self.get_name()}", default_value=self.velocity[0], speed = 0.5, min_value = -200.0, callback=lambda sender, app_data: self.on_drag_velocity_x(sender, app_data))
+      main_dpg.add_drag_float(label=f"Velocity Y##{self.get_name()}", default_value=self.velocity[1], speed = 0.5, callback=lambda sender, app_data: self.on_drag_velocity_y(sender, app_data))
+      main_dpg.add_drag_float(label=f"Velocity Z##{self.get_name()}", default_value=self.velocity[2], speed = 0.5, callback=lambda sender, app_data: self.on_drag_velocity_z(sender, app_data))
+     
+      main_dpg.add_text("Position")
+      main_dpg.add_drag_float(label=f"Position X##{self.get_name()}", default_value=self.position[0], speed = 0.5, min_value = -200.0, callback=lambda sender, app_data: self.on_drag_position_x(sender, app_data))
+      main_dpg.add_drag_float(label=f"Position Y##{self.get_name()}", default_value=self.position[1], speed = 0.5, callback=lambda sender, app_data: self.on_drag_position_y(sender, app_data))
+      main_dpg.add_drag_float(label=f"Position Z##{self.get_name()}", default_value=self.position[2], speed = 0.5, callback=lambda sender, app_data: self.on_drag_position_z(sender, app_data))
+
+
+
+    """
           
         if ImGui.CollapsingHeader("Doppler"):
           doppler_enabled = self.get_doppler_enabled()
@@ -129,3 +182,4 @@ class AudioPlayer:
             doppler_factor = self.get_doppler_factor()
             if ImGui.DragFloat(f"Doppler Factor##{self.get_name()}", doppler_factor, 0.1, 0.0):
               self.set_doppler_factor(doppler_factor)
+    """

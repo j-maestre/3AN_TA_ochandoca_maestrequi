@@ -2,6 +2,7 @@ import math
 import sys
 from random import randint, random
 from typing import Union
+import dearpygui.dearpygui as dpg
 
 import pygame
 
@@ -250,76 +251,104 @@ def main_game():
 
     oalInit()
 
-    audio = AudioPlayer("./data/door.wav")
+    audio = AudioPlayer("./data/pepe_mono.wav", "Pepe mono")
     audio.play()
+
+    
 
     wave = Wave()
     s = pygame.Surface(screen.get_size(), pygame.SRCALPHA).convert_alpha()
     objects: list[pymunk.Circle] = []
     floating_objects: list[Ball] = []
 
-    while True:
+    # Imgui context
+    dpg.create_context()
+    dpg.create_viewport()
+    dpg.setup_dearpygui()
+
+    """
+    with dpg.window(label="Example Window"):
+      dpg.add_text("Hello world")
+      #dpg.add_button(label="Save", callback=save_callback)
+      dpg.add_input_text(label="string")
+      dpg.add_slider_float(label="float")
+    """
+
+    
+
+    audio.show_imgui(dpg)
+
+    dpg.show_viewport()
+    dpg.start_dearpygui()
+
+    
+
+
+    while dpg.is_dearpygui_running():
+      dpg.render_dearpygui_frame()
+      
         
-        audio.show_effect_buttons()
+        #audio.show_effect_buttons()
 
-        events = pygame.event.get()
-        for e in events:
-            if e.type == pygame.QUIT:
-                sys.exit(0)
-            if e.type == pygame.KEYDOWN:
-                if e.key == pygame.K_ESCAPE:
-                    sys.exit(0)
-                if e.key == pygame.K_s:
-                    SMOOTH = not SMOOTH
-                if e.key == pygame.K_v:
-                    VOLUME_RISE = not VOLUME_RISE
-                if e.key == pygame.K_p:
-                    USE_PYMUNK = not USE_PYMUNK
-                if e.key == pygame.K_t:
-                    TEXTURE = not TEXTURE
-                if e.key == pygame.K_h:
-                    DISPLAY_HELP = not DISPLAY_HELP
-            if e.type == pygame.MOUSEBUTTONDOWN:
-                if e.button == 1 and USE_PYMUNK:
-                    mx, my = pygame.mouse.get_pos()
-                    rock = create_rock(space, mx, my)
-                    objects.append(rock)
-                if e.button == 3:
-                    mx, my = pygame.mouse.get_pos()
-                    floating_objects.append(Ball(mx, my))
-        if USE_PYMUNK:
-            space.step(1 / FPS)
-        screen.fill('black')
-        s.fill(0)
-        for i in objects:
-            if not i.body.splashed:
-                if i.body.position.y + i.radius > wave.get_target_height():
-                    i.body.splashed = True
-                    wave.splash(index=wave.get_spring_index_for_x_pos(i.body.position.x), vel=i.radius)
-                    if VOLUME_RISE:
-                        wave.add_volume(i.radius ** 2 * math.pi)
-            draw_rock(i, screen)
-        for i in floating_objects:
-            i.update()
-            i.draw(screen)
-            index = wave.get_spring_index_for_x_pos(i.x)
-            if i.y > wave.get_target_height():
-                if not i.spring:
-                    i.spring = wave.springs[index]
-                    try:
-                        i.next_spring = wave.springs[index + 1]
-                    except IndexError:
-                        pass
-                    wave.splash(index, 2)
-        wave.update()
-        wave.draw(s)
-        screen.blit(s, (0, 0))
-        wave.draw_line(screen)
-        if DISPLAY_HELP:
-            display_help()
-        pygame.display.update()
-        clock.tick(FPS)
-        # print(clock.get_fps())
-
+      events = pygame.event.get()
+      for e in events:
+          if e.type == pygame.QUIT:
+              sys.exit(0)
+          if e.type == pygame.KEYDOWN:
+              if e.key == pygame.K_ESCAPE:
+                  sys.exit(0)
+              if e.key == pygame.K_s:
+                  SMOOTH = not SMOOTH
+              if e.key == pygame.K_v:
+                  VOLUME_RISE = not VOLUME_RISE
+              if e.key == pygame.K_p:
+                  USE_PYMUNK = not USE_PYMUNK
+              if e.key == pygame.K_t:
+                  TEXTURE = not TEXTURE
+              if e.key == pygame.K_h:
+                  DISPLAY_HELP = not DISPLAY_HELP
+          if e.type == pygame.MOUSEBUTTONDOWN:
+              if e.button == 1 and USE_PYMUNK:
+                  mx, my = pygame.mouse.get_pos()
+                  rock = create_rock(space, mx, my)
+                  objects.append(rock)
+              if e.button == 3:
+                  mx, my = pygame.mouse.get_pos()
+                  floating_objects.append(Ball(mx, my))
+      if USE_PYMUNK:
+          space.step(1 / FPS)
+      screen.fill('black')
+      s.fill(0)
+      for i in objects:
+          if not i.body.splashed:
+              if i.body.position.y + i.radius > wave.get_target_height():
+                  i.body.splashed = True
+                  wave.splash(index=wave.get_spring_index_for_x_pos(i.body.position.x), vel=i.radius)
+                  if VOLUME_RISE:
+                      wave.add_volume(i.radius ** 2 * math.pi)
+          draw_rock(i, screen)
+      for i in floating_objects:
+          i.update()
+          i.draw(screen)
+          index = wave.get_spring_index_for_x_pos(i.x)
+          if i.y > wave.get_target_height():
+              if not i.spring:
+                  i.spring = wave.springs[index]
+                  try:
+                      i.next_spring = wave.springs[index + 1]
+                  except IndexError:
+                      pass
+                  wave.splash(index, 2)
+      wave.update()
+      wave.draw(s)
+      screen.blit(s, (0, 0))
+      wave.draw_line(screen)
+      if DISPLAY_HELP:
+          display_help()
+      pygame.display.update()
+      clock.tick(FPS)
+      # print(clock.get_fps())
 
 main_game()
+
+dpg.destroy_context()
