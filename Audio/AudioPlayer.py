@@ -18,6 +18,7 @@ class AudioPlayer:
     self.listener = listener
 
     self.is_moving = False
+    self.is_cross_fading = False
 
 
     if not self.source:

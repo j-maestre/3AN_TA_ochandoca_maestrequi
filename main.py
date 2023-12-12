@@ -54,7 +54,7 @@ if USE_PYMUNK:
     space.gravity = GRAVITY
 
 if TEXTURE:
-    ROCK_IMAGE = pygame.image.load('rock.png').convert_alpha()
+    ROCK_IMAGE = pygame.image.load('empty.png').convert_alpha()
     BALL_IMAGE = pygame.image.load('ship.png').convert_alpha()
 
 
@@ -67,7 +67,7 @@ def create_rock(_space, x=None, y=None):
         x = screen_width // 2 + random()
     if y is None:
         y = 0
-    mass = randint(2, 10)
+    mass = 3
     body = pymunk.Body(mass=mass * 5, moment=mass * 1, body_type=pymunk.Body.DYNAMIC)
     body.position = (x + random(), y)
     body.splashed = False
@@ -91,7 +91,6 @@ def draw_rock(rock, surf: pygame.Surface):
     else:
         pygame.draw.circle(surf, 'brown', rock.body.position, rock.radius)
 
-
 def display_help():
     _text = [
         'Press ... to toggle',
@@ -101,6 +100,11 @@ def display_help():
         'V - water rise',
         'P - use of pymunk',
         'H - help',
+        '-- Cross Fade --',
+        'A - Awake tripulation',
+        'S - Sleep tripulation',
+        '-- Branching --',
+        'Space - Change mode',
     ]
     y = 0
     for i in _text:
@@ -238,6 +242,28 @@ def get_curve(points):
     points = [Point(x1[i], y1[i]) for i in range(len(x1))]
     return points
 
+def lerp(a, b, t):
+    return a + t * (b - a)
+
+def cross_fade(first_audio, second_audio, target_gain, dt):
+    value1 = first_audio.get_gain()
+    value1 = lerp(value1, 0.0, (0.5 * dt))
+    first_audio.set_gain(value1)
+    #print("First gain " + str(value1))
+
+    value2 = second_audio.get_gain()
+    value2 = lerp(value2, target_gain, (0.5 * dt))
+    second_audio.set_gain(value2)
+    print("First gain " + str(value1) + " Second gain " + str(value2))
+    if(first_audio.get_gain() <= 0.05 and (second_audio.get_gain() + 0.05) >= target_gain):
+        first_audio.is_cross_fading = False
+        second_audio.is_cross_fading = False
+        first_audio.set_gain(0.0)
+        return False
+    else:
+        return True
+
+
 
 def create_walls():
     base = pymunk.Body(mass=10 ** 5, moment=0, body_type=pymunk.Body.STATIC)
@@ -270,18 +296,34 @@ def on_gaviota_move(gaviota):
     gaviota.is_moving = True
     gaviota.play()
 
+def rain(list, space):
+    num = randint(5, 10)
+    w, h = pygame.display.get_surface().get_size()
+    for i in range(0, num):
+        rock = create_rock(space, randint(0, w), 25)
+        list.append(rock)
+
 def start_game():
     gaviota_speed = 1.7
+    start_cross_to_personas = False
+    start_cross_to_fondo = False
     fondo = AudioPlayer("./data/fondo.wav", "Fondo")
     gaviota = AudioPlayer("./data/gaviota.wav", "Gaviota")
+    personas = AudioPlayer("./data/personas.wav", "Personas")
+
+    personas.set_gain(0.0)
+    personas.play()
+
+    tormenta = AudioPlayer("./data/tormenta.wav", "Tormenta")
+    tormenta.set_gain(0.2)
+    #tormenta.play()
+
     gaviota.show_imgui(dpg, True)
     gaviota.set_gain(1.0)
 
     #gaviota.play()
-    #fondo.play()
-    fondo.set_gain(0.3)
-
-   
+    fondo.play()
+    fondo.set_gain(0.4)
 
 
     global USE_PYMUNK, SMOOTH, VOLUME_RISE, TEXTURE, DISPLAY_HELP
@@ -317,16 +359,25 @@ def start_game():
                     TEXTURE = not TEXTURE
                 if e.key == pygame.K_h:
                     DISPLAY_HELP = not DISPLAY_HELP
-                    """
+                
+                if e.key == pygame.K_SPACE:
+                    print("change state")
+                    b.change_state()
+                if e.key == pygame.K_a:
+                    print("cross de fondo a personas")
+                    start_cross_to_personas = True
+                if e.key == pygame.K_s:
+                    print("cross de personas a fondo")
+                    start_cross_to_fondo = True
+
+
             if e.type == pygame.MOUSEBUTTONDOWN:
                 if e.button == 1 and USE_PYMUNK:
                     mx, my = pygame.mouse.get_pos()
                     rock = create_rock(space, mx, my)
                     objects.append(rock)
                 if e.button == 3:
-                    mx, my = pygame.mouse.get_pos()
-                    floating_objects.append(Ball(mx, my))
-                    """
+                    rain(objects, space)
         if USE_PYMUNK:
             space.step(1 / FPS)
         screen.fill('black')
@@ -337,7 +388,12 @@ def start_game():
                     i.body.splashed = True
                     wave.splash(index=wave.get_spring_index_for_x_pos(i.body.position.x), vel=i.radius)
                     if VOLUME_RISE:
-                        wave.add_volume(i.radius ** 2 * math.pi)
+                        #wave.add_volume(i.radius ** 2 * math.pi)
+                        pass
+            else:
+                space.remove(i)
+                objects.remove(i)
+        
             draw_rock(i, screen)
         for i in floating_objects:
             i.update()
@@ -366,12 +422,20 @@ def start_game():
             #if num_rand == 5:
                 #on_gaviota_move(gaviota)
                 #print("Vengaaa la gaviota")
+        if(start_cross_to_personas == True):
+            start_cross_to_personas = cross_fade(fondo, personas, 0.2,delta_time)
+        if(start_cross_to_fondo == True):
+            start_cross_to_fondo = cross_fade(personas, fondo, 0.4,delta_time)
+            
+
                 
         if gaviota.is_moving == True:
             move_left_to_right(gaviota, gaviota_speed, delta_time)
+
+        #print(b)
        
         
-        b.update()        
+        #b.update()        
         clock.tick(FPS)
 
 def main_game():
