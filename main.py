@@ -3,12 +3,20 @@ import sys
 from random import randint, random
 from typing import Union
 import dearpygui.dearpygui as dpg
+import threading
+import queue
+from functools import partial
 
 import pygame
-
+from openal import *
 from Audio.AudioPlayer import *
+from Audio.Branching import *
+
 
 Point = pygame.Vector2
+fondo = None
+gaviota = None
+b = Branching()
 
 # INITIAL RUNTIME CONFIGURATIONS
 
@@ -47,7 +55,7 @@ if USE_PYMUNK:
 
 if TEXTURE:
     ROCK_IMAGE = pygame.image.load('rock.png').convert_alpha()
-    BALL_IMAGE = pygame.image.load('ball.png').convert_alpha()
+    BALL_IMAGE = pygame.image.load('ship.png').convert_alpha()
 
 
 def map_to_range(value, from_x, from_y, to_x, to_y):
@@ -105,8 +113,8 @@ class Ball:
     def __init__(self, x, y):
         self.x = x
         self.y = y
-        self.height = randint(2, 10)
-        self.width = randint(5, 50 + 20)
+        self.height = 42
+        self.width = 20
         self.dy = 0
         self.spring: Union['WaterSpring', None] = None
         self.next_spring: Union['WaterSpring', None] = None
@@ -117,6 +125,11 @@ class Ball:
         self.on_water_surface = False
 
     def update(self):
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_LEFT]:
+            self.x -= 1.0
+        if keys[pygame.K_RIGHT]:
+          self.x += 1.0
         if self.spring:
             if self.on_water_surface:
                 self.y = self.spring.height - self.height
@@ -130,7 +143,7 @@ class Ball:
             self.y += self.dy
 
     def draw(self, surf: pygame.Surface):
-        size = 50
+        size = 100
         if TEXTURE:
             img = pygame.transform.scale(BALL_IMAGE, (size, size))
             surf.blit(img, img.get_rect(center=(self.x, self.y)))
@@ -243,28 +256,144 @@ def create_walls():
     wall_right_shape = pymunk.Poly.create_box(wall_right, (100, screen_height))
     space.add(wall_right, wall_right_shape)
 
+def move_left_to_right(audio,speed ,dt):
+   
+    position = audio.get_position()
+    x = position[0] + (speed * dt)
+    audio.set_position((x, position[1], position[2]))
+    if x >= 20.0:
+        audio.is_moving = False
+        audio.stop()
 
-def main_game():
+def on_gaviota_move(gaviota):
+    gaviota.set_position((-10.0, 0.0, 3.0))
+    gaviota.is_moving = True
+    gaviota.play()
+
+def start_game():
+    gaviota_speed = 1.7
+    fondo = AudioPlayer("./data/fondo.wav", "Fondo")
+    gaviota = AudioPlayer("./data/gaviota.wav", "Gaviota")
+    gaviota.show_imgui(dpg, True)
+    gaviota.set_gain(1.0)
+
+    #gaviota.play()
+    #fondo.play()
+    fondo.set_gain(0.3)
+
+   
+
+
     global USE_PYMUNK, SMOOTH, VOLUME_RISE, TEXTURE, DISPLAY_HELP
     if USE_PYMUNK:
         create_walls()
-
-    oalInit()
-
-    audio = AudioPlayer("./data/pepe_mono.wav", "Pepe mono")
-    audio.play()
-
     
-
     wave = Wave()
     s = pygame.Surface(screen.get_size(), pygame.SRCALPHA).convert_alpha()
     objects: list[pymunk.Circle] = []
     floating_objects: list[Ball] = []
 
+    floating_objects.append(Ball(50, 10))
+    last_time = pygame.time.get_ticks()
+
+    while True:
+        current_time = pygame.time.get_ticks()
+        delta_time = (current_time - last_time) / 1000.0
+        last_time = current_time
+        events = pygame.event.get()
+        for e in events:
+            if e.type == pygame.QUIT:
+                sys.exit(0)
+            if e.type == pygame.KEYDOWN:
+                if e.key == pygame.K_ESCAPE:
+                    sys.exit(0)
+                if e.key == pygame.K_s:
+                    SMOOTH = not SMOOTH
+                if e.key == pygame.K_v:
+                    VOLUME_RISE = not VOLUME_RISE
+                if e.key == pygame.K_p:
+                    USE_PYMUNK = not USE_PYMUNK
+                if e.key == pygame.K_t:
+                    TEXTURE = not TEXTURE
+                if e.key == pygame.K_h:
+                    DISPLAY_HELP = not DISPLAY_HELP
+                    """
+            if e.type == pygame.MOUSEBUTTONDOWN:
+                if e.button == 1 and USE_PYMUNK:
+                    mx, my = pygame.mouse.get_pos()
+                    rock = create_rock(space, mx, my)
+                    objects.append(rock)
+                if e.button == 3:
+                    mx, my = pygame.mouse.get_pos()
+                    floating_objects.append(Ball(mx, my))
+                    """
+        if USE_PYMUNK:
+            space.step(1 / FPS)
+        screen.fill('black')
+        s.fill(0)
+        for i in objects:
+            if not i.body.splashed:
+                if i.body.position.y + i.radius > wave.get_target_height():
+                    i.body.splashed = True
+                    wave.splash(index=wave.get_spring_index_for_x_pos(i.body.position.x), vel=i.radius)
+                    if VOLUME_RISE:
+                        wave.add_volume(i.radius ** 2 * math.pi)
+            draw_rock(i, screen)
+        for i in floating_objects:
+            i.update()
+            i.draw(screen)
+            index = wave.get_spring_index_for_x_pos(i.x)
+            if i.y > wave.get_target_height():
+                if not i.spring:
+                    i.spring = wave.springs[index]
+                    try:
+                        i.next_spring = wave.springs[index + 1]
+                    except IndexError:
+                        pass
+                    wave.splash(index, 2)
+        wave.update()
+        wave.draw(s)
+        screen.blit(s, (0, 0))
+        wave.draw_line(screen)
+        if DISPLAY_HELP:
+            display_help()
+        pygame.display.update()
+
+        # Si no se esta moviendo sacamos random
+
+        #if gaviota.is_moving == False:
+            #num_rand = randint(1, 500)
+            #if num_rand == 5:
+                #on_gaviota_move(gaviota)
+                #print("Vengaaa la gaviota")
+                
+        if gaviota.is_moving == True:
+            move_left_to_right(gaviota, gaviota_speed, delta_time)
+       
+        
+        b.update()        
+        clock.tick(FPS)
+
+def main_game():
+    oalInit()
+    listener = oalGetListener()
+    listener.set_position((10.0, 0.0, 0.0))
+
+    
+
     # Imgui context
     dpg.create_context()
     dpg.create_viewport()
     dpg.setup_dearpygui()
+
+    #fondo.show_imgui(dpg)
+    #gaviota.show_imgui(dpg)
+    #gaviota.update_source_position()
+    
+
+    thread_game = threading.Thread(target=start_game)
+    thread_game.start()
+    
 
     """
     with dpg.window(label="Example Window"):
@@ -274,81 +403,21 @@ def main_game():
       dpg.add_slider_float(label="float")
     """
 
-    
 
-    audio.show_imgui(dpg)
+    print("hola")
 
     dpg.show_viewport()
     dpg.start_dearpygui()
-
-    
-
-
-    while dpg.is_dearpygui_running():
+    #while dpg.is_dearpygui_running():
+    while True:
       dpg.render_dearpygui_frame()
       
         
         #audio.show_effect_buttons()
 
-      events = pygame.event.get()
-      for e in events:
-          if e.type == pygame.QUIT:
-              sys.exit(0)
-          if e.type == pygame.KEYDOWN:
-              if e.key == pygame.K_ESCAPE:
-                  sys.exit(0)
-              if e.key == pygame.K_s:
-                  SMOOTH = not SMOOTH
-              if e.key == pygame.K_v:
-                  VOLUME_RISE = not VOLUME_RISE
-              if e.key == pygame.K_p:
-                  USE_PYMUNK = not USE_PYMUNK
-              if e.key == pygame.K_t:
-                  TEXTURE = not TEXTURE
-              if e.key == pygame.K_h:
-                  DISPLAY_HELP = not DISPLAY_HELP
-          if e.type == pygame.MOUSEBUTTONDOWN:
-              if e.button == 1 and USE_PYMUNK:
-                  mx, my = pygame.mouse.get_pos()
-                  rock = create_rock(space, mx, my)
-                  objects.append(rock)
-              if e.button == 3:
-                  mx, my = pygame.mouse.get_pos()
-                  floating_objects.append(Ball(mx, my))
-      if USE_PYMUNK:
-          space.step(1 / FPS)
-      screen.fill('black')
-      s.fill(0)
-      for i in objects:
-          if not i.body.splashed:
-              if i.body.position.y + i.radius > wave.get_target_height():
-                  i.body.splashed = True
-                  wave.splash(index=wave.get_spring_index_for_x_pos(i.body.position.x), vel=i.radius)
-                  if VOLUME_RISE:
-                      wave.add_volume(i.radius ** 2 * math.pi)
-          draw_rock(i, screen)
-      for i in floating_objects:
-          i.update()
-          i.draw(screen)
-          index = wave.get_spring_index_for_x_pos(i.x)
-          if i.y > wave.get_target_height():
-              if not i.spring:
-                  i.spring = wave.springs[index]
-                  try:
-                      i.next_spring = wave.springs[index + 1]
-                  except IndexError:
-                      pass
-                  wave.splash(index, 2)
-      wave.update()
-      wave.draw(s)
-      screen.blit(s, (0, 0))
-      wave.draw_line(screen)
-      if DISPLAY_HELP:
-          display_help()
-      pygame.display.update()
-      clock.tick(FPS)
+      
       # print(clock.get_fps())
 
 main_game()
-
+thread_game.join()
 dpg.destroy_context()

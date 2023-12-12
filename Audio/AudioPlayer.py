@@ -3,20 +3,35 @@ import pygame
 import dearpygui.dearpygui as dpg
 
 class AudioPlayer:
-  def __init__(self, file_path, name = "None"):
+  def __init__(self, file_path, name = "None", listener=None):
     self.source = oalOpen(file_path)
     self.name = name
     self.pitch = 1.0
     self.looping = False
     self.gain = 1.0
     self.doppler = False
+    self.factor = 1.0
 
-    self.velocity = [0.0, 0.0, 0.0]
-    self.position = [0.0, 0.0, 0.0]
+    self.velocity = (0.0, 0.0, 0.0)
+    self.position = (0.0, 0.0, 0.0)
     self.set_doppler_factor(3.0)
+    self.listener = listener
+
+    self.is_moving = False
+
 
     if not self.source:
         raise ValueError(f"No se pudo cargar el archivo de sonido: {file_path}")
+
+  def update_listener_position(self):
+    if self.listener:
+      listener_position = self.listener.get_position()
+      listener_orientation = self.listener.get_orientation()
+      oalListener().set_position(*listener_position)
+      oalListener().set_orientation(*listener_orientation)
+
+  def set_listener(self, listener):
+    self.listener = listener
 
   def play(self):
     if not self.is_playing():
@@ -49,8 +64,9 @@ class AudioPlayer:
     self.gain = gain
     self.source.set_gain(gain)
 
-  def set_position(self, x, y, z):
-    self.source.set_position(x, y, z)
+  def set_position(self, pos):
+    self.position = pos
+    self.source.set_position(pos)
 
   def set_velocity(self, x, y, z):
     self.source.set_velocity(x, y, z)
@@ -66,10 +82,12 @@ class AudioPlayer:
       factor = 10.0
     if factor < 0.0:
       factor = 0.0
-    self.source.set_doppler_factor(factor)
+    self.factor = factor
+    #self.source.set_doppler_factor(factor)
 
-  def update_source_position(self, x, y, z):
-    self.source.update_position(x, y, z)
+  def update_source_position(self):
+    print("New position x " + str(self.position[0]))
+    self.source.set_position((self.position[0], self.position[1], self.position[2]))
   
   def is_playing(self):
     return self.source.get_state() == AL_PLAYING
@@ -81,7 +99,7 @@ class AudioPlayer:
     return self.gain
 
   def get_position(self):
-    return self.position_x, self.position_y, self.position_z 
+    return self.position
 
   def get_velocity(self):
     return self.source.get_velocity()
@@ -127,21 +145,34 @@ class AudioPlayer:
   
   def on_drag_position_x(self, sender, app_data):
     self.position[0] = app_data
-    print(self.position[0])
+    #print(self.position[0])
 
   def on_drag_position_y(self, sender, app_data):
     self.position[1] = app_data
-    print(self.position[1])
+    #print(self.position[1])
 
   def on_drag_position_z(self, sender, app_data):
     self.position[2] = app_data
-    print(self.position[2])
+    #print(self.position[2])
 
   def on_set_doppler(self):
     self.doppler = not self.doppler
     self.set_doppler(self.doppler)
+
+  def get_state(self):
+    state = self.source.get_state()
+
+
+  def is_stop(self):
+    return self.source.get_state() == AL_STOPPED
+    #print("Stoped: " + str(AL_STOPPED) + " Paused: " + str(AL_PAUSED) + " Playing: " + str(AL_PLAYING))
   
-  def show_imgui(self, main_dpg):
+  def move(self):
+    self.is_moving = True
+    self.set_position((-10.0, 0.0, 3.0))
+    self.play()
+
+  def show_imgui(self, main_dpg, is_gaviota = False):
 
     with main_dpg.window(label=f"{self.get_name()} Controls"):
       main_dpg.add_button(label=f"Play##{self.get_name()}", callback=self.play)
@@ -169,7 +200,8 @@ class AudioPlayer:
       main_dpg.add_drag_float(label=f"Position Y##{self.get_name()}", default_value=self.position[1], speed = 0.5, callback=lambda sender, app_data: self.on_drag_position_y(sender, app_data))
       main_dpg.add_drag_float(label=f"Position Z##{self.get_name()}", default_value=self.position[2], speed = 0.5, callback=lambda sender, app_data: self.on_drag_position_z(sender, app_data))
 
-
+      if is_gaviota == True:
+        main_dpg.add_button(label=f"Move##{self.get_name()}", callback=self.move)
 
     """
           
