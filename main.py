@@ -421,9 +421,13 @@ def start_game():
         events = pygame.event.get()
         for e in events:
             if e.type == pygame.QUIT:
+                #thread_game.join()
+                dpg.destroy_context()
                 sys.exit(0)
             if e.type == pygame.KEYDOWN:
                 if e.key == pygame.K_ESCAPE:
+                    #thread_game.join()
+                    dpg.destroy_context()
                     sys.exit(0)
                 if e.key == pygame.K_s:
                     SMOOTH = not SMOOTH
