@@ -93,16 +93,16 @@ def draw_rock(rock, surf: pygame.Surface):
 
 def display_help():
     _text = [
-        'Press ... to toggle',
+        'Instructions set',
         '',
-        'S - Smoothness',
-        'T - texture',
-        'V - water rise',
-        'P - use of pymunk',
-        'H - help',
+        'Q - Spawn gaviota',
+        'W - Start raining',
+        '',
         '-- Cross Fade --',
+        'E - Start storm',
         'A - Awake tripulation',
         'S - Sleep tripulation',
+        '',
         '-- Branching --',
         'Space - Change mode',
     ]
@@ -246,19 +246,29 @@ def lerp(a, b, t):
     return a + t * (b - a)
 
 def cross_fade(first_audio, second_audio, target_gain, dt):
+    value1 = -1.0
+    value2 = -1.0
+   
     value1 = first_audio.get_gain()
-    value1 = lerp(value1, 0.0, (0.5 * dt))
-    first_audio.set_gain(value1)
+    tmp = lerp(value1, 0.0, (0.5 * dt))
+    # Solo cambiamos si es menor porque tiene que ir a 0
+    if tmp < value1: 
+        first_audio.set_gain(tmp)
     #print("First gain " + str(value1))
 
+    
     value2 = second_audio.get_gain()
-    value2 = lerp(value2, target_gain, (0.5 * dt))
-    second_audio.set_gain(value2)
+    tmp = lerp(value2, target_gain, (0.5 * dt))
+    # Solo cambiamos si es mayor porque tiene que aumentar hasta el target
+    if tmp > value2:
+        second_audio.set_gain(tmp)
     print("First gain " + str(value1) + " Second gain " + str(value2))
+
     if(first_audio.get_gain() <= 0.05 and (second_audio.get_gain() + 0.05) >= target_gain):
         first_audio.is_cross_fading = False
         second_audio.is_cross_fading = False
         first_audio.set_gain(0.0)
+        second_audio.set_gain(target_gain)
         return False
     else:
         return True
@@ -296,34 +306,53 @@ def on_gaviota_move(gaviota):
     gaviota.is_moving = True
     gaviota.play()
 
-def rain(list, space):
-    num = randint(5, 10)
+def rain(list, space, num_balls):
+    num = randint(5, num_balls)
     w, h = pygame.display.get_surface().get_size()
     for i in range(0, num):
-        rock = create_rock(space, randint(0, w), 25)
+        rock = create_rock(space, randint(0, w), randint(15, 50))
         list.append(rock)
 
 def start_game():
     gaviota_speed = 1.7
     start_cross_to_personas = False
     start_cross_to_fondo = False
+    start_cross_to_storm = False
+
+    fondo_volumen = 0.3
+    personas_volumen = 0.15
+    storm_volumen = 0.15
+
     fondo = AudioPlayer("./data/fondo.wav", "Fondo")
-    gaviota = AudioPlayer("./data/gaviota.wav", "Gaviota")
     personas = AudioPlayer("./data/personas.wav", "Personas")
+    storm = AudioPlayer("./data/tormenta.wav", "Tormenta")
+
+    gaviota = AudioPlayer("./data/gaviota.wav", "Gaviota")
+
+    fondo.set_looping(True)
+    personas.set_looping(True)
+    storm.set_looping(True)
+
+    raining = False
+    raining_timer = 0.0
+    num_raining = 0
 
     personas.set_gain(0.0)
     personas.play()
 
-    tormenta = AudioPlayer("./data/tormenta.wav", "Tormenta")
-    tormenta.set_gain(0.2)
-    #tormenta.play()
+    # storm gain target 0.05
+    storm.set_gain(0.0)
+    storm.play()
+    
 
     gaviota.show_imgui(dpg, True)
-    gaviota.set_gain(1.0)
+    gaviota.set_gain(5.0)
 
     #gaviota.play()
     fondo.play()
-    fondo.set_gain(0.4)
+    fondo.set_gain(0.3)
+
+    actual_sound = fondo
 
 
     global USE_PYMUNK, SMOOTH, VOLUME_RISE, TEXTURE, DISPLAY_HELP
@@ -359,15 +388,42 @@ def start_game():
                     TEXTURE = not TEXTURE
                 if e.key == pygame.K_h:
                     DISPLAY_HELP = not DISPLAY_HELP
-                
+                if e.key == pygame.K_q:
+                    gaviota.set_position((-10.0, 0.0, 3.0))
+                    gaviota.play()
+                    gaviota.is_moving = True
+
+                if e.key == pygame.K_w:
+                    print("Raining!")
+                    raining = True
+                    num_raining = 10
+                    if not b.is_chill():
+                        b.change_state()
+                    start_cross_to_fondo = True
+                if e.key == pygame.K_e:
+                    print("Strom!")
+                    num_raining = 20
+                    raining = True
+                    if b.is_chill():
+                        b.change_state()
+                    start_cross_to_storm = True
+
                 if e.key == pygame.K_SPACE:
                     print("change state")
                     b.change_state()
+
                 if e.key == pygame.K_a:
                     print("cross de fondo a personas")
+                    raining = False
+                    if not b.is_chill():
+                        b.change_state()
                     start_cross_to_personas = True
+                    
                 if e.key == pygame.K_s:
                     print("cross de personas a fondo")
+                    raining = False
+                    if not b.is_chill():
+                        b.change_state()
                     start_cross_to_fondo = True
 
 
@@ -376,8 +432,6 @@ def start_game():
                     mx, my = pygame.mouse.get_pos()
                     rock = create_rock(space, mx, my)
                     objects.append(rock)
-                if e.button == 3:
-                    rain(objects, space)
         if USE_PYMUNK:
             space.step(1 / FPS)
         screen.fill('black')
@@ -423,19 +477,40 @@ def start_game():
                 #on_gaviota_move(gaviota)
                 #print("Vengaaa la gaviota")
         if(start_cross_to_personas == True):
-            start_cross_to_personas = cross_fade(fondo, personas, 0.2,delta_time)
-        if(start_cross_to_fondo == True):
-            start_cross_to_fondo = cross_fade(personas, fondo, 0.4,delta_time)
+            if fondo.get_gain() > 0.0:
+                start_cross_to_personas = cross_fade(fondo, personas, personas_volumen,delta_time)
+            else:
+                start_cross_to_personas = cross_fade(storm, personas, personas_volumen,delta_time)
             
+
+        if(start_cross_to_fondo == True):
+            if personas.get_gain() > 0.0:
+                start_cross_to_fondo = cross_fade(personas, fondo, fondo_volumen,delta_time)
+            else:
+                start_cross_to_fondo = cross_fade(storm, fondo, fondo_volumen,delta_time)
+
+        if(start_cross_to_storm == True):
+            if fondo.get_gain() > 0.0:
+                start_cross_to_storm = cross_fade(fondo, storm, storm_volumen, delta_time)
+            else:
+                start_cross_to_storm = cross_fade(personas, storm, storm_volumen, delta_time)
+       
+
+        if (raining):
+            raining_timer += delta_time
+            if (raining_timer >= 1.0):
+                raining_timer -= 1.0
+                rain(objects, space, num_raining)
 
                 
         if gaviota.is_moving == True:
             move_left_to_right(gaviota, gaviota_speed, delta_time)
+        
 
         #print(b)
        
         
-        #b.update()        
+        b.update()        
         clock.tick(FPS)
 
 def main_game():
