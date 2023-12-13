@@ -1,6 +1,6 @@
 from PackageSetup import *
 
-packages = ['pygame', 'pyogg', 'dearpygui', 'numpy', 'scipy', 'pymunk']
+packages = ['pygame', 'PyOpenAL','pyogg', 'dearpygui', 'numpy', 'scipy', 'pymunk']
 
 for package in packages:
     InstallPackage(package, True, False)
@@ -295,7 +295,7 @@ def cross_fade(first_audio, second_audio, target_gain, dt):
     # Solo cambiamos si es mayor porque tiene que aumentar hasta el target
     if tmp > value2:
         second_audio.set_gain(tmp)
-    print("First gain " + str(value1) + " Second gain " + str(value2))
+    print(f"First gain {value1:.2f} Second gain {value2:.2f}")
 
     if(first_audio.get_gain() <= 0.05 and (second_audio.get_gain() + 0.05) >= target_gain):
         first_audio.is_cross_fading = False
