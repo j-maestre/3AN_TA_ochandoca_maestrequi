@@ -1,3 +1,8 @@
+from PackageSetup import *
+
+InstallPackage('pygame', True, False)
+
+# Import necessary modules and libraries
 import math
 import sys
 from random import randint, random
@@ -12,16 +17,13 @@ from openal import *
 from Audio.AudioPlayer import *
 from Audio.Branching import *
 
-
+# Definition of a Point class using pygame.Vector2
 Point = pygame.Vector2
 fondo = None
 gaviota = None
 b = Branching()
 
-# INITIAL RUNTIME CONFIGURATIONS
-
-# You can edit these accordingly based on the modules you have
-
+# Initial runtime configurations
 SMOOTH = True  # uses numpy + scipy
 TEXTURE = True  # uses texture images
 VOLUME_RISE = True
@@ -36,33 +38,37 @@ if SMOOTH:
 if USE_PYMUNK:
     import pymunk
 
+# Initialization of pygame
 pygame.init()
 
+# Pygame window setup
 screen_width = 1200
 screen_height = 720
-
 screen = pygame.display.set_mode((screen_width, screen_height))
 pygame.display.set_caption('Water')
-
 clock = pygame.time.Clock()
 
-
+# Setup images and font for visual representation
 font = pygame.font.SysFont('consolas', 25)
-
-if USE_PYMUNK:
-    space = pymunk.Space()
-    space.gravity = GRAVITY
-
 if TEXTURE:
     ROCK_IMAGE = pygame.image.load('empty.png').convert_alpha()
     BALL_IMAGE = pygame.image.load('ship.png').convert_alpha()
 
+# Pymunk setup if used
+if USE_PYMUNK:
+    space = pymunk.Space()
+    space.gravity = GRAVITY
 
 def map_to_range(value, from_x, from_y, to_x, to_y):
+    """
+    Function to map a value from one range to another
+    """
     return value * (to_y - to_x) / (from_y - from_x)
 
-
 def create_rock(_space, x=None, y=None):
+    """
+    Function to create a rock in pymunk space
+    """
     if x is None:
         x = screen_width // 2 + random()
     if y is None:
@@ -81,6 +87,9 @@ def create_rock(_space, x=None, y=None):
 
 
 def draw_rock(rock, surf: pygame.Surface):
+    """
+    Function to draw a rock on the pygame surface
+    """
     if TEXTURE:
         try:
             angle = round(math.degrees(rock.body.angle))
@@ -92,6 +101,9 @@ def draw_rock(rock, surf: pygame.Surface):
         pygame.draw.circle(surf, 'brown', rock.body.position, rock.radius)
 
 def display_help():
+    """
+    Function to display game instructions on the screen
+    """
     _text = [
         'Instructions set',
         '',
@@ -114,6 +126,9 @@ def display_help():
 
 
 class Ball:
+    """
+    Definition of the Ball class to represent a ball in the game
+    """
     def __init__(self, x, y):
         self.x = x
         self.y = y
@@ -156,6 +171,9 @@ class Ball:
 
 
 class WaterSpring:
+    """
+    Definition of the WaterSpring class to represent a water spring
+    """
     def __init__(self, x=0, target_height=None):
         if not target_height:
             self.target_height = screen_height // 2 + 150
@@ -179,6 +197,9 @@ class WaterSpring:
 
 
 class Wave:
+    """
+    Definition of the Wave class to group water springs and simulate a wave
+    """
     def __init__(self):
         diff = 20
         self.springs = [WaterSpring(x=i * diff + 0) for i in range(screen_width // diff + 2)]
@@ -232,6 +253,9 @@ class Wave:
 
 
 def get_curve(points):
+    """
+    Function to get a cubic interpolation of points for smoothing curves
+    """
     x_new = numpy.arange(points[0].x, points[-1].x, 1)
     x = numpy.array([i.x for i in points[:-1]])
     y = numpy.array([i.y for i in points[:-1]])
@@ -243,9 +267,15 @@ def get_curve(points):
     return points
 
 def lerp(a, b, t):
+    """
+    Function to perform linear interpolation
+    """
     return a + t * (b - a)
 
 def cross_fade(first_audio, second_audio, target_gain, dt):
+    """
+    Function to perform crossfade between two audio tracks
+    """
     value1 = -1.0
     value2 = -1.0
    
@@ -276,6 +306,9 @@ def cross_fade(first_audio, second_audio, target_gain, dt):
 
 
 def create_walls():
+    """
+    Function to create static walls in pymunk
+    """
     base = pymunk.Body(mass=10 ** 5, moment=0, body_type=pymunk.Body.STATIC)
     base.position = (screen_width // 2, screen_height + 25)
     base_shape = pymunk.Poly.create_box(base, (screen_width, 50))
@@ -293,7 +326,9 @@ def create_walls():
     space.add(wall_right, wall_right_shape)
 
 def move_left_to_right(audio,speed ,dt):
-   
+    """
+    Function to move an object from left to right in pymunk space
+    """
     position = audio.get_position()
     x = position[0] + (speed * dt)
     audio.set_position((x, position[1], position[2]))
@@ -302,11 +337,17 @@ def move_left_to_right(audio,speed ,dt):
         audio.stop()
 
 def on_gaviota_move(gaviota):
+    """
+    Function to handle gaviota movement in pymunk space
+    """
     gaviota.set_position((-10.0, 0.0, 3.0))
     gaviota.is_moving = True
     gaviota.play()
 
 def rain(list, space, num_balls):
+    """
+    Function to simulate rain by creating rocks in pymunk space
+    """
     num = randint(5, num_balls)
     w, h = pygame.display.get_surface().get_size()
     for i in range(0, num):
@@ -314,6 +355,9 @@ def rain(list, space, num_balls):
         list.append(rock)
 
 def start_game():
+    """
+    Main function that starts the game loop
+    """
     gaviota_speed = 1.7
     start_cross_to_personas = False
     start_cross_to_fondo = False
@@ -514,6 +558,9 @@ def start_game():
         clock.tick(FPS)
 
 def main_game():
+    """
+    Main pygame loop and calling start_game in a separate thread
+    """
     oalInit()
     listener = oalGetListener()
     listener.set_position((10.0, 0.0, 0.0))
@@ -549,6 +596,8 @@ def main_game():
       
       # print(clock.get_fps())
 
+# Call to main_game to start the program
 main_game()
+# Wait for the start_game thread to finish before destroying the ImGui context
 thread_game.join()
 dpg.destroy_context()
