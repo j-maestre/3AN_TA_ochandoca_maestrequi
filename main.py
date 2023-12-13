@@ -1,6 +1,9 @@
 from PackageSetup import *
 
-InstallPackage('pygame', True, False)
+packages = ['pygame', 'pyogg', 'dearpygui', 'numpy', 'scipy', 'pymunk']
+
+for package in packages:
+    InstallPackage(package, True, False)
 
 # Import necessary modules and libraries
 import math

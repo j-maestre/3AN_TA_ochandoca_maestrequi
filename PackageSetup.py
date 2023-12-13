@@ -4,7 +4,7 @@ import os
 
 def InstallPackage(PackageName: str, Force: bool = False, Verbose: bool = True, Atempts:int = 2) -> bool:
   if Atempts == 0:
-    print("No more atempts allowed!")
+    print(f"No more atempts allowed installing {PackageName}!")
     return False
 
   if importlib.util.find_spec(PackageName) is None:
@@ -24,7 +24,7 @@ def InstallPackage(PackageName: str, Force: bool = False, Verbose: bool = True, 
       stderr = subprocess.STDOUT
       subprocess.call(['python', '-m', 'pip', 'install', PackageName], stdout=stdout, stderr=stderr)
 
-    return InstallPackage(PackageName, Atempts=(Atempts-1))
+    return InstallPackage(PackageName, Atempts=(Atempts-1), Force=Force, Verbose=Verbose)
   return True
 
 def UnInstallPackage(PackageName: str, Verbose: bool = True):
