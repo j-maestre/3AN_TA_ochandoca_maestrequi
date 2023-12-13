@@ -23,6 +23,9 @@ class Branching:
     self._baIndex = 0
     self._change_state = False
 
+  def is_chill(self):
+    return self._song_list == 'A' or self._song_list == 'BA'
+
   def update(self):
     if (self._song_list == 'A'):
       if (self._a_songs[self._aIndex].is_playing() == False):
