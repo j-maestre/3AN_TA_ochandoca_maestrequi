@@ -1,5 +1,6 @@
 from Audio.AudioPlayer import *
 
+# Definition of the Branching class
 class Branching:
 
   def __init__(self):
@@ -24,9 +25,15 @@ class Branching:
     self._change_state = False
 
   def is_chill(self):
+    """
+    Check if the current state is a 'chill' state (A or BA)
+    """
     return self._song_list == 'A' or self._song_list == 'BA'
 
   def update(self):
+    """
+    Update the state of the Branching object
+    """
     if (self._song_list == 'A'):
       if (self._a_songs[self._aIndex].is_playing() == False):
         if (self._change_state == True):
@@ -91,9 +98,15 @@ class Branching:
     
 
   def change_state(self):
+    """
+    Trigger a state change
+    """
     self._change_state = True
 
   def __str__(self):
+    """
+    String representation of the current state
+    """
     if (self._song_list == 'A'):
       return self._a_songs[self._aIndex].get_name()
     if (self._song_list == 'B'):
