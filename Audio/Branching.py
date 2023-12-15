@@ -7,16 +7,16 @@ class Branching:
     self.volume = 0.02
     self._a_songs = []
     for i in range(1, 9):
-      self._a_songs.append(AudioPlayer(f"data/branching/slbgm_forest_A-0{i}.ogg", name=f"data/branching/slbgm_forest_A-0{i}.ogg"))
+      self._a_songs.append(AudioPlayer(f"data/branching/slbgm_forest_A-0{i}.ogg", name=f"slbgm_forest_A-0{i}"))
     self._b_songs = []
     for i in range(1, 9):
-      self._b_songs.append(AudioPlayer(f"data/branching/slbgm_forest_B-0{i}.ogg", name=f"data/branching/slbgm_forest_B-0{i}.ogg"))
+      self._b_songs.append(AudioPlayer(f"data/branching/slbgm_forest_B-0{i}.ogg", name=f"slbgm_forest_B-0{i}"))
     self._ab_songs = []
     for i in range(1, 3):
-      self._ab_songs.append(AudioPlayer(f"data/branching/slbgm_forest_AB-0{i}.ogg", name=f"data/branching/slbgm_forest_AB-0{i}.ogg"))
+      self._ab_songs.append(AudioPlayer(f"data/branching/slbgm_forest_AB-0{i}.ogg", name=f"slbgm_forest_AB-0{i}"))
     self._ba_songs = []
     for i in range(1, 3):
-      self._ba_songs.append(AudioPlayer(f"data/branching/slbgm_forest_BA-0{i}.ogg", name=f"data/branching/slbgm_forest_BA-0{i}.ogg"))
+      self._ba_songs.append(AudioPlayer(f"data/branching/slbgm_forest_BA-0{i}.ogg", name=f"slbgm_forest_BA-0{i}"))
     self._song_list = 'A'
     self._aIndex = 0
     self._bIndex = 0
@@ -115,3 +115,35 @@ class Branching:
       return self._ab_songs[self._abIndex].get_name()
     if (self._song_list == 'BA'):
       return self._ba_songs[self._baIndex].get_name()
+    
+  def get_nex_song(self):
+    if (self._song_list == 'A'):
+      if (self._change_state == True):
+        if (self._aIndex > 3):
+          return self._ab_songs[1].get_name()
+        else:
+          return self._ab_songs[0].get_name()
+      else:
+        return self._a_songs[self._aIndex + 1 % len(self._a_songs)].get_name()
+    
+    if (self._song_list == 'B'):
+      if (self._change_state == True):
+        if (self._bIndex > 3):
+          return self._ba_songs[1].get_name()
+        else:
+          return self._ba_songs[0].get_name()
+      else:
+        return self._b_songs[self._bIndex + 1 % len(self._b_songs)].get_name()
+
+    if (self._song_list == 'AB'):
+      if (self._aIndex > 3):
+        return self._b_songs[5].get_name()
+      else:
+        return self._b_songs[0].get_name()
+
+    if (self._song_list == 'BA'):
+        if (self._bIndex > 3):
+          return self._a_songs[5].get_name()
+        else:
+          return self._a_songs[0].get_name()
+  

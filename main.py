@@ -121,6 +121,8 @@ def display_help():
         '-- Branching --',
         'Space - Change mode',
     ]
+    _text.append('Current song: ' + str(b))
+    _text.append('Next song: ' + b.get_nex_song())
     y = 0
     for i in _text:
         y += 20
